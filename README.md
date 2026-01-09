@@ -70,7 +70,7 @@ python -m pytest
 
 ---
 
-## Project Structure (Simplified)
+## Project Structure
 
 ```
 flappy_cli/
