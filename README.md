@@ -30,7 +30,7 @@ The game runs entirely in the terminal and uses ASCII / Unicode characters for r
 
 ### 1. Clone the repository
 ```bash
-git clone <repository-url>
+git clone https://github.com/Dumitru-Daniel-Antoniu/Flappy_Bird.git
 cd Flappy_Bird
 ```
 
