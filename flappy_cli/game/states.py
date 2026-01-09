@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import copy
+
 from dataclasses import dataclass
 
 from typing import Optional, Protocol
 
 from ..config import GameMode, make_spawner
-from ..model import advance_world, collides
+from ..model import advance_world, collides, collides_pipe
 
 
 class GameState(Protocol):
@@ -35,13 +37,17 @@ class StartState:
             game.spawner = make_spawner(game.mode)
             game.reset_world()
             game.set_state(PlayingState())
-            game.world.bird.flap(game.flap_velocity)
+            game.world.bird.flap(game.config.flap_velocity)
 
     def update(self, game: "Game") -> None:
         return
 
     def render(self, game: "Game") -> None:
-        message = f"1=Easy 2=Medium 3=Hard | SPACE to play | Q to quit"
+        message = (
+            "1 = Easy   2 = Medium   3 = Hard\n"
+            f"Current mode: {game.mode.value.upper()}\n"
+            "SPACE to play | Q to quit"
+        )
         game.renderer.render(game.world, message=message)
 
 
@@ -51,22 +57,31 @@ class PlayingState:
         if key == "q":
             game.is_running = False
         elif key == " ":
-            game.world.bird.flap(game.flap_velocity)
+            game.world.bird.flap(game.config.flap_velocity)
 
     def update(self, game: "Game") -> None:
         if game.spawner.should_spawn(tick=game.tick, world=game.world):
             pipe = game.spawner.make_pipe(world=game.world, rng=game.rng)
             game.world.pipes.append(pipe)
 
-        advance_world(game.world, gravity=game.gravity)
+        safe_world = copy.deepcopy(game.world)
+
+        advance_world(game.world, gravity=game.config.gravity)
 
         if collides(game.world):
+            if collides_pipe(game.world):
+                game.world = safe_world
             game.set_state(GameOverState(final_score=game.world.score))
+            return
 
         game.tick += 1
 
     def render(self, game: "Game") -> None:
-        message = f"Mode: {game.mode.value.upper()} | SPACE to flap | Q to quit"
+        message = (
+            "PLAYING\n"
+            f"Mode: {game.mode.value.upper()}\n"
+            "SPACE to flap | Q to quit"
+        )
         game.renderer.render(game.world, message=message)
 
 
@@ -85,5 +100,9 @@ class GameOverState:
         return
 
     def render(self, game: "Game") -> None:
-        message = f"GAME OVER | Score: {self.final_score} | R to restart | Q to quit"
+        message = (
+            "GAME OVER\n"
+            f"Final score: {self.final_score}\n"
+            "R to restart | Q to quit"
+        )
         game.renderer.render(game.world, message=message)

@@ -21,6 +21,7 @@ class GameConfig:
 
     gravity: float = 0.25
     flap_velocity: float = -1.6
+
     fps: int = 20
 
     seed: int | None = None
@@ -28,11 +29,11 @@ class GameConfig:
 
 def make_spawner(mode: GameMode) -> SpawnerStrategy:
     if mode == GameMode.EASY:
-        return FixedIntervalSpawner(interval_ticks=25, gap_h=8)
+        return FixedIntervalSpawner(interval_ticks=24, gap_h=8)
 
     if mode == GameMode.MEDIUM:
         return ScalingIntervalSpawner(
-            start_interval=22,
+            start_interval=23,
             min_interval=15,
             every_points=4,
             gap_h=7

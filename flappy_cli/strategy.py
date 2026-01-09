@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import random
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from typing import Protocol
 
@@ -18,7 +18,7 @@ class SpawnerStrategy(Protocol):
 @dataclass(slots=True)
 class FixedIntervalSpawner:
     interval_ticks: int
-    gap_h: int = 4
+    gap_h: int
     next_spawn_tick: int = 1
 
     def reset(self) -> None:
@@ -43,11 +43,11 @@ class FixedIntervalSpawner:
 
 @dataclass(slots=True)
 class ScalingIntervalSpawner:
-    start_interval: int = 28
-    min_interval: int = 16
-    every_points: int = 5
-    gap_h: int = 4
-    next_spawn_tick: int = 1
+    start_interval: int
+    min_interval: int
+    every_points: int
+    gap_h: int
+    next_spawn_tick: int = field(default=1, init=False)
 
     def reset(self) -> None:
         self.next_spawn_tick = 1

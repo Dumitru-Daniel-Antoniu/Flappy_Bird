@@ -26,10 +26,6 @@ class Game:
     keys: KeyReader
     rng: random.Random
 
-    gravity: float = 0.25
-    flap_velocity: float = -1.6
-    fps: int = 20
-
     state: GameState = field(default_factory=StartState)
     is_running: bool = True
     tick: int = 0
@@ -62,6 +58,10 @@ class Game:
             self.state.render(self)
 
             next_t += frame_time
-            delay = next_t - time.monotonic()
+            now = time.monotonic()
+            delay = next_t - now
+
             if delay > 0:
                 time.sleep(delay)
+            else:
+                next_t = now

@@ -13,6 +13,11 @@ from typing import Protocol
 from ..model import World
 
 
+RESET = "\x1b[0m"
+GREEN = "\x1b[32m"
+YELLOW = "\x1b[33m"
+
+
 def _enable_windows_vt() -> None:
     if os.name != "nt":
         return
@@ -34,13 +39,34 @@ def _show_cursor() -> None:
     sys.stdout.flush()
 
 
+def _center_line(text: str, width: int) -> str:
+    inner = text[:width]
+    centered = inner.center(width)
+    return centered.ljust(width + 2)
+
 class Renderer(Protocol):
     def render(self, world: World, *, message: str = "") -> None: ...
 
 
 @dataclass(slots=True)
+class _Theme:
+    tl: str
+    tr: str
+    bl: str
+    br: str
+    h_top: str
+    h_bottom: str
+    v: str
+
+    sky: str
+    pipe: str
+    bird: str
+
+
+@dataclass(slots=True)
 class AsciiRenderer:
     clear_once: bool = True
+    use_colors: bool = True
     _initialized: bool = False
 
     def _init_console(self) -> None:
@@ -57,53 +83,103 @@ class AsciiRenderer:
 
         self._initialized = True
 
-    def render(self, world: World, *, message: str = "") -> None:
-        self._init_console()
+    def _theme(self) -> _Theme:
+        tl = "▄"
+        tr = "▄"
+        bl = "▀"
+        br = "▀"
+        h_top = "▄"
+        h_bottom = "▀"
+        v = "█"
 
-        grid = [[" " for _ in range(world.width)] for _ in range(world.height)]
+        sky = " "
 
+        if self.use_colors:
+            bird = YELLOW + "●" + RESET
+            pipe = GREEN + "█" + RESET
+        else:
+            bird = "●"
+            pipe = "█"
+
+        return _Theme(
+            tl=tl, tr=tr, bl=bl, br=br,
+            h_top=h_top, h_bottom=h_bottom, v=v,
+            sky=sky, pipe=pipe, bird=bird,
+        )
+
+    def _build_grid(self, world: World, theme: _Theme) -> list[list[str]]:
+        grid = [[theme.sky for _ in range(world.width)] for _ in range(world.height)]
+        self._draw_pipes(world, grid, theme)
+        self._draw_bird(world, grid, theme)
+        return grid
+
+    def _draw_pipes(self, world: World, grid: list[list[str]], theme: _Theme) -> None:
         for pipe in world.pipes:
-            if 0 <= pipe.x < world.width:
-                for y in range(world.height):
-                    in_gap = pipe.gap_y <= y < pipe.gap_y + pipe.gap_h
-                    if not in_gap:
-                        grid[y][pipe.x] = "|"
+            x = pipe.x
+            if not (0 <= x < world.width):
+                continue
 
-        by = world.bird.cell_y
-        bx = world.bird.x
-        if 0 <= bx < world.width and 0 <= by < world.height:
-            grid[by][bx] = "@"
+            gap_start = pipe.gap_y
+            gap_end = pipe.gap_y + pipe.gap_h
+            for y in range(world.height):
+                if gap_start <= y < gap_end:
+                    continue
+                grid[y][x] = theme.pipe
 
-        term_cols, term_rows = shutil.get_terminal_size(fallback=(120, 30))
+    def _draw_bird(self, world: World, grid: list[list[str]], theme: _Theme) -> None:
+        y = world.bird.cell_y
+        x = world.bird.x
+        if 0 <= x < world.width and 0 <= y < world.height:
+            grid[y][x] = theme.bird
 
-        top = "+" + "-" * world.width + "+"
-        frame_width = len(top)
+    def _build_hud_lines(self, world: World, message: str) -> list[str]:
+        hud = [f"Score: {world.score}"]
+        if message:
+            hud.extend(message.splitlines())
+        return hud
 
-        hud1 = f"Score: {world.score}"
-        hud2 = message or ""
+    def _build_frame_lines(self, world: World, grid: list[list[str]], hud: list[str], theme: _Theme) -> list[str]:
+        top = theme.tl + (theme.h_top * world.width) + theme.tr
+        bottom = theme.bl + (theme.h_bottom * world.width) + theme.br
 
         lines: list[str] = []
-        lines.append("\x1b[2K" + hud1.ljust(world.width + 2))
-        lines.append("\x1b[2K" + hud2.ljust(world.width + 2))
-        lines.append(top)
 
+        for h in hud:
+            inner = _center_line(h, world.width)
+            lines.append(inner.ljust(world.width + 2))
+
+        lines.append(top)
         for row in grid:
-            lines.append("|" + "".join(row) + "|")
+            lines.append(theme.v + "".join(row) + theme.v)
+        lines.append(bottom)
 
-        lines.append(top)
+        return lines
 
-        frame_height = len(lines)
+    def _pad_frame(self, lines: list[str], *, world_width: int) -> str:
+        term_cols, term_rows = shutil.get_terminal_size(fallback=(120, 30))
+
+        frame_width = world_width + 2
 
         left_pad = max(0, (term_cols - frame_width) // 2)
         pad_spaces = " " * left_pad
 
+        frame_height = len(lines)
         top_pad = max(0, (term_rows - frame_height) // 2)
         pad_newlines = "\n" * top_pad
 
-        padded_lines = [pad_spaces + line for line in lines]
-        frame = pad_newlines + "\n".join(padded_lines) + "\n"
+        padded = [pad_spaces + "\x1b[2K" + line for line in lines]
+        return pad_newlines + "\n".join(padded) + "\n"
 
-        sys.stdout.write("\x1b[H" + frame + "\x1b[J")
+    def render(self, world: World, *, message: str = "") -> None:
+        self._init_console()
+
+        theme = self._theme()
+        grid = self._build_grid(world, theme)
+        hud = self._build_hud_lines(world, message)
+        lines = self._build_frame_lines(world, grid, hud, theme)
+
+        frame = self._pad_frame(lines, world_width=world.width)
+        sys.stdout.write("\x1b[H" + frame)
         sys.stdout.flush()
 
 

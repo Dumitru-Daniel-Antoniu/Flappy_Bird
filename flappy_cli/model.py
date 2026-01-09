@@ -22,7 +22,7 @@ class Bird:
 
     @property
     def cell_y(self) -> int:
-        return int(round(self.y))
+        return int(self.y)
 
 
 @dataclass(slots=True)
@@ -52,18 +52,25 @@ def pipe_blocks_cell(pipe: Pipe, y: int) -> bool:
     return not in_gap
 
 
-def collides(world: World) -> bool:
+def collides_bounds(world: World) -> bool:
     by = world.bird.cell_y
 
-    if not in_bounds_y(world, by):
-        return True
+    return not in_bounds_y(world, by)
 
+
+def collides_pipe(world: World) -> bool:
+    by = world.bird.cell_y
     bx = world.bird.x
+
     for p in world.pipes:
         if p.x == bx and pipe_blocks_cell(p, by):
             return True
 
     return False
+
+
+def collides(world: World) -> bool:
+    return collides_bounds(world) or collides_pipe(world)
 
 
 def move_pipes_left(world: World, dx: int = 1) -> None:
