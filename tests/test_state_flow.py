@@ -22,8 +22,7 @@ def make_test_game() -> Game:
         config=config,
         renderer=NullRenderer(),
         keys=NullKeyReader(),
-        rng=random.Random(123),
-        fps=999
+        rng=random.Random(123)
     )
 
     return game

@@ -12,7 +12,7 @@ def make_world(*, score=0, width=20, height=10) -> World:
 
 def test_fixed_interval_should_spawn():
     world = make_world()
-    spawner = FixedIntervalSpawner(interval_ticks=5)
+    spawner = FixedIntervalSpawner(interval_ticks=5, gap_h=4)
 
     assert spawner.should_spawn(tick=5, world=world) is True
     assert spawner.should_spawn(tick=6, world=world) is False
@@ -34,6 +34,7 @@ def test_scaling_interval_decreases_with_score():
         start_interval=10,
         min_interval=6,
         every_points=2,
+        gap_h=4
     )
 
     assert spawner.current_interval(score=0) == 10
